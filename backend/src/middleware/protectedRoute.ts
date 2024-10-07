@@ -17,7 +17,7 @@ declare global {
 }
 
 
-const checkValidToken = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+const protectedRoute = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
 
         const token = req.cookies.token;
@@ -48,4 +48,4 @@ const checkValidToken = async (req: Request, res: Response, next: NextFunction):
     }
 }
 
-export default checkValidToken;
+export default protectedRoute;
