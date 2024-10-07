@@ -1,4 +1,5 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import authenticationRoutes from "./routes/auth.route.js";
 import chatRoutes from "./routes/chat.route.js";
 import dotenv from "dotenv";
@@ -6,6 +7,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+
+app.use(cookieParser());
 app.use(express.json());
 
 app.use("/api/auth", authenticationRoutes);
