@@ -26,6 +26,9 @@ model User {
 
   conversations Conversation[]
   chats Chat[]
+
+  friends User[] @relation("Friendship")
+  friendsOf User[] @relation("Friendship")
 }
 
 model Conversation {
