@@ -8,14 +8,7 @@ const Profile = () => {
         </div>
         <div className='flex flex-col flex-1'>
             <p className='font-semibold'>John Doe</p>
-            {/* <div className='flex gap-3 justify-between'>
-                <p className='font-semibold'>John Doe</p>
-                <span classname='text-xl'>emoji</span>
-            </div> */}
         </div>
-
-        {/* <div className='divider my-0 py-0 h-1'>
-        </div> */}
     </div>
   )
 }
