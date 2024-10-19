@@ -3,31 +3,9 @@ import prisma from "../db/prisma.js";
 
 export const addFriend = async (req: Request, res: Response) => {
     try {
+        console.log("trying to add friend");
         const { id: userId } = req.user;
         const { id: friendId } = req.params;
-
-        // const result = await prisma.$transaction([
-        //     prisma.user.update({
-        //         where: {
-        //             id: userId
-        //         },
-        //         data: {
-        //             friends: {
-        //                 connect: { id: friendId }
-        //             },
-        //         }
-        //     }),
-        //     prisma.user.update({
-        //         where: { 
-        //             id: friendId
-        //         },
-        //         data: {
-        //             friends: {
-        //                 connect: { id: userId }
-        //             }
-        //         }
-        //     })
-        // ]);
 
         const result = await prisma.$transaction([
             prisma.user.update({
@@ -54,29 +32,8 @@ export const deleteFriend = async (req: Request, res: Response) => {
     try {
         const { id: userId } = req.user;
         const { id: friendId } = req.params;
-
-        // const result = await prisma.$transaction([
-        //     prisma.user.update({
-        //         where: {
-        //             id: userId
-        //         },
-        //         data: {
-        //             friends: {
-        //                 disconnect: { id: friendId }
-        //             },
-        //         }
-        //     }),
-        //     prisma.user.update({
-        //         where: { 
-        //             id: friendId
-        //         },
-        //         data: {
-        //             friends: {
-        //                 disconnect: { id: userId }
-        //             }
-        //         }
-        //     })
-        // ]);
+        console.log("user id : ", userId);
+        console.log("friend id : ", friendId);
 
         const result = await prisma.$transaction([
             prisma.user.update({
@@ -120,7 +77,6 @@ export const getAllFriends = async (req: Request, res: Response) => {
             res.status(200).json([]);
         }
 
-        // res.status(200).json(friends);
     } catch (error: any) {
         console.error("Error in getting friends", error.message);
         res.status(500).json("Internal Server Error");
