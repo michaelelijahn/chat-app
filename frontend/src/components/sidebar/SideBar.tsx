@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Profiles from './Profiles';
 
 const SideBar = () => {
-  const [selectedPage, setSelectedPage] = useState('Friends');
+  const [selectedPage, setSelectedPage] = useState('Chat');
   const pages = ["Friends", "Chat", "Suggested"];
   const [search, setSearch] = useState("");
 

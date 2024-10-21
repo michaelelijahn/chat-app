@@ -99,16 +99,31 @@ export const getContacts = async (req: Request, res: Response) => {
     try {
         const { id: userId } = req.user;
 
-        const contacts = await prisma.user.findMany({
+        const conversations = await prisma.conversation.findMany({
             where: {
-                id: {
-                    not: userId
-                }
+              memberIds: {
+                has: userId
+              }
             },
             select: {
-                id: true,
-                fullName: true,
-                profilePic: true,
+              memberIds: true
+            }
+        });
+        
+        const contactIds = Array.from(new Set(
+            conversations.flatMap(conv => conv.memberIds.filter(id => id !== userId))
+        ));
+        
+        const contacts = await prisma.user.findMany({
+            where: {
+              id: {
+                in: contactIds
+              }
+            },
+            select: {
+              id: true,
+              fullName: true,
+              profilePic: true,
             }
         });
 
