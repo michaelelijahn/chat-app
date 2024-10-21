@@ -16,8 +16,7 @@ declare global {
     }
 }
 
-
-const protectedRoute = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
 
         const token = req.cookies.token;
@@ -26,7 +25,7 @@ const protectedRoute = async (req: Request, res: Response, next: NextFunction): 
             return res.status(401).json({ error: "Unathorized, No Token" });
         }
 
-        const validToken  = jwt.verify(token, process.env.JWT_SECRET!) as validToken;
+        const validToken  = jwt.verify(token, process.env.JWT_ACCESS_SECRET!) as validToken;
 
         if (!validToken) {
             return res.status(401).json({ error: "Unauthorized, Invalid Token" });
@@ -48,4 +47,4 @@ const protectedRoute = async (req: Request, res: Response, next: NextFunction): 
     }
 }
 
-export default protectedRoute;
+export default authenticateToken;
