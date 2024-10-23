@@ -1,14 +1,14 @@
 import express from "express";
-import authenticateToken from "../middleware/authenticateToken.js";
+import { refreshAndAuthenticateToken } from "../utils/userTokenHelper.js";
 import { Request, Response } from "express";
 import prisma from "../db/prisma.js";
 import { getReceiverSocketId, serverIO } from "../socket/socket.js";
 
 const router = express.Router();
 
-router.get("/conversations", authenticateToken, async (req: Request, res: Response) => {
+router.get("/conversations", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
-        const { id: userId } = req.user;
+        const { id: userId } = res.locals.user;
 
         const conversations = await prisma.conversation.findMany({
             where: {
@@ -34,7 +34,6 @@ router.get("/conversations", authenticateToken, async (req: Request, res: Respon
             select: {
               id: true,
               fullName: true,
-              profilePic: true,
             }
         });
 
@@ -46,11 +45,11 @@ router.get("/conversations", authenticateToken, async (req: Request, res: Respon
     }
 });
 
-router.get("/:id", authenticateToken, async (req: Request, res: Response): Promise<any> => {
+router.get("/:id", refreshAndAuthenticateToken, async (req: Request, res: Response): Promise<any> => {
     try {
 
         const { id: targetUserId } = req.params;
-        const { id: senderId } = req.user;
+        const { id: senderId } = res.locals.user;
 
         const conversation = await prisma.conversation.findFirst({
             where: {
@@ -79,11 +78,11 @@ router.get("/:id", authenticateToken, async (req: Request, res: Response): Promi
     }
 });
 
-router.post("/send/:id", authenticateToken, async (req: Request, res: Response) => {
+router.post("/send/:id", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
         const { chat } = req.body;
         const { id: targetUserId } = req.params;
-        const { id: senderId } = req.user;
+        const { id: senderId } = res.locals.user;
 
         let conversation = await prisma.conversation.findFirst({
             where: {

@@ -1,39 +1,17 @@
 import express from "express";
-import authenticateToken from "../middleware/authenticateToken.js";
 import prisma from "../db/prisma.js";
 import { Request, Response } from "express"
 import bcryptjs from "bcryptjs";
-import generateToken from "../utils/generateToken.js";
+import { generateToken, deleteRefreshToken, isTokenValid, getUser, refreshAndAuthenticateToken } from "../utils/userTokenHelper.js";
 
 const router = express.Router();
 
-router.get("/user", authenticateToken, async (req: Request, res: Response): Promise<any> => {
-    try {
-        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-
-        if (!user) {
-            return res.status(404).json({ error: "User not found"});
-        }
-
-        res.status(200).json({
-            id: user.id,
-            username: user.username,
-            fullName: user.fullName,
-            profilePic: user.profilePic,
-        })
-
-    } catch (error: any) {
-        console.log("Error in getting current user");
-        res.status(500).json({ error: "Internal Server Error "});
-    }
-});
-
 router.post("/register", async (req: Request, res: Response): Promise<any> => {
-
     try {
-        const { username, fullName, password, passwordConfirmation, gender } = req.body;
+        const { username, fullName, password, passwordConfirmation, publicKey } = req.body;
 
-        if (!username || !fullName || !password || !passwordConfirmation || !gender) {
+
+        if (!username || !fullName || !password || !passwordConfirmation) {
             return res.status(400).json({ error: "Please fill in all fields" });
         }
 
@@ -50,28 +28,22 @@ router.post("/register", async (req: Request, res: Response): Promise<any> => {
         const salt = await bcryptjs.genSalt(10);
         const hashedPassword = await bcryptjs.hash(password, salt);
 
-        const maleAvatar = `https://avatar.iran.liara.run/public/boy?username=${username}`;
-        const femaleAvatar = `https://avatar.iran.liara.run/public/girl?username=${username}`;
-
         const newUser = await prisma.user.create({
             data: {
                 username,
                 fullName,
                 password : hashedPassword,
-                gender,
-                profilePic : gender === "male" ? maleAvatar : femaleAvatar,
+                publicKey
             }
         });
 
         if (newUser) {
-
-            generateToken(newUser.id, res);
+            await generateToken(newUser.id, res);
 
             res.status(201).json({
                 id: newUser.id,
                 username: newUser.username,
                 fullName: newUser.fullName,
-                profilePic: newUser.profilePic
             });
         } else {
             res.status(400).json({ error: "Invalid user data" });
@@ -92,19 +64,42 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
             return res.status(400).json({ error: "Invalid Username" });
         }
 
+        if (user.loginAttempts === 0) {
+            return res.status(400).json({ error: "Too many failed login attempts, please reset your password"});
+        }
+
         const isValidPassword = await bcryptjs.compare(password, user.password);
 
         if (!isValidPassword) {
+            await prisma.user.update({
+                where: {
+                    username
+                },
+                data: {
+                    loginAttempts: {
+                        decrement: 1
+                    }
+                }
+            });
             return res.status(400).json({ error: "Invalid Password" });
+        } else {
+            await prisma.user.update({
+                where: {
+                    username
+                },
+                data: {
+                    loginAttempts: 5
+                }
+            })
         }
 
-        generateToken(user.id, res);
+        await generateToken(user.id, res);
 
         res.status(200).json({
             id: user.id,
             username: user.username,
             fullName: user.fullName,
-            profilePic: user.profilePic
+            publicKey: user.publicKey,
         });
 
     } catch (error: any) {
@@ -113,9 +108,24 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
     }
 });
 
-router.post("/logout", async (req: Request, res: Response) => {
+router.post("/logout", refreshAndAuthenticateToken, async (req: Request, res: Response): Promise<any> => {
     try {
-        res.cookie("token", "", { maxAge: 0 });
+        const refreshToken = req.cookies.refreshToken;
+
+        console.log("refresh token : ", refreshToken);
+
+        if (! await isTokenValid(refreshToken)) {
+            return res.status(401).json({ error: "Unauthorized, Invalid Token" });
+        }
+
+        const user = getUser(refreshToken);
+
+        if (user === null) {
+            res.status(403).json({ message: "Refresh token is invalid" });
+        }
+
+        await deleteRefreshToken(refreshToken);
+
         res.status(200).json({ message: "User successfully logged out" });
     } catch (error) {
         console.log(error);

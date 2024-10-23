@@ -18,17 +18,26 @@ model User {
   username String @unique
   fullName String
   password String
-  gender Gender
-  profilePic String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   conversationIds String[]
+  loginAttempts Int @default(5)
+  tokens Token[]
+  publicKey String
 
   conversations Conversation[]
   chats Chat[]
 
   friends User[] @relation("Friendship")
   friendsOf User[] @relation("Friendship")
+}
+
+model Token {
+  id String @id @default(cuid())
+  userId String
+  accessToken String @unique
+  refreshToken String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Conversation {

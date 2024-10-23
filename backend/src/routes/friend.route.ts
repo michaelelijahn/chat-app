@@ -1,13 +1,13 @@
 import express from "express";
-import authenticateToken from "../middleware/authenticateToken.js";
+import { refreshAndAuthenticateToken } from "../utils/userTokenHelper.js";
 import { Request, Response } from "express";
 import prisma from "../db/prisma.js";
 
 const router = express.Router();
 
-router.get("/all", authenticateToken, async (req: Request, res: Response) => {
+router.get("/all", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
-        const { id: userId } = req.user;
+        const { id: userId } = res.locals.user;
 
         const user = await prisma.user.findUnique({
             where: {
@@ -15,7 +15,7 @@ router.get("/all", authenticateToken, async (req: Request, res: Response) => {
             },
             include: {
                 friends: {
-                    select: { id: true, fullName: true, profilePic: true }
+                    select: { id: true, fullName: true }
                 }
             }
         });
@@ -32,9 +32,9 @@ router.get("/all", authenticateToken, async (req: Request, res: Response) => {
     }
 });
 
-router.get("/suggested", authenticateToken, async (req: Request, res: Response) => {
+router.get("/suggested", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
-        const { id: userId } = req.user;
+        const { id: userId } = res.locals.user;
 
         const currentUser = await prisma.user.findUnique({
             where: {
@@ -60,8 +60,7 @@ router.get("/suggested", authenticateToken, async (req: Request, res: Response) 
             },
             select: {
                 id: true, 
-                fullName: true, 
-                profilePic: true,
+                fullName: true,
             },
             take: 5
         });
@@ -73,10 +72,10 @@ router.get("/suggested", authenticateToken, async (req: Request, res: Response) 
     }
 });
 
-router.post("/add/:id", authenticateToken, async (req: Request, res: Response) => {
+router.post("/add/:id", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
         console.log("trying to add friend");
-        const { id: userId } = req.user;
+        const { id: userId } = res.locals.user;
         const { id: friendId } = req.params;
 
         const result = await prisma.$transaction([
@@ -100,9 +99,9 @@ router.post("/add/:id", authenticateToken, async (req: Request, res: Response) =
     }
 });
 
-router.delete("/delete/:id", authenticateToken, async (req: Request, res: Response) => {
+router.delete("/delete/:id", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
-        const { id: userId } = req.user;
+        const { id: userId } = res.locals.user;
         const { id: friendId } = req.params;
         console.log("user id : ", userId);
         console.log("friend id : ", friendId);

@@ -8,9 +8,7 @@ import { app, server } from "./socket/socket.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3002;
-
-// const app = express();
+const PORT: number = parseInt(process.env.PORT || '3002');
 
 app.use(cookieParser());
 app.use(express.json());
