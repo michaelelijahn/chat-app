@@ -3,9 +3,12 @@ import useConversation from "../../zustand/useConversation";
 import Chat from "./Chat"
 import { useSocketContext } from "../../context/SocketContext";
 import toast from "react-hot-toast";
+import { useAuthContext } from "../../context/AuthContext";
+import { authenticatedFetch } from "../../utils/util";
 
 const Chats = () => {
   const { selectedConversation, setChats, chats } = useConversation();
+  const { accessToken } = useAuthContext();
   const [loading, setLoading] = useState(false);
   const { socket } = useSocketContext();
   const ref = useRef<HTMLElement>() as React.MutableRefObject<HTMLDivElement> ;
@@ -17,12 +20,25 @@ const Chats = () => {
 }, [socket, chats, setChats]);
 
   useEffect(() => {
+
+    if (!accessToken) {
+      return;
+    }
+
     const getChat = async () => {
       if (!selectedConversation) return;
+      
       try {
         setLoading(true);
         setChats([]);
-        const response = await fetch(`/api/chat/${selectedConversation.id}`);
+
+        const { response } = await authenticatedFetch({
+          url: `/api/chat/${selectedConversation.id}`,
+          accessToken,
+          options: {
+            method: "GET",
+          }
+        });
         const data = await response.json();
 
         if (!response.ok) {

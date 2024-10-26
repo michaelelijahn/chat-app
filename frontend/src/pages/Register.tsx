@@ -1,19 +1,32 @@
 import { useState } from 'react';
-import Radio from '@mui/material/Radio';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import RadioGroup from '@mui/material/RadioGroup';
-import FormControl from '@mui/material/FormControl';
-import FormLabel from '@mui/material/FormLabel';
 import { Link } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { passwordStrength } from "check-password-strength"; 
+import { exportPublicKey, generateKeys, storePrivateKey } from '../utils/keysHelper';
+import { isValidUsername } from '../utils/util';
 
 type registerUserDetails = {
   fullName: string;
   username: string;
   password: string;
   passwordConfirmation: string;
-  gender: string;
+}
+
+const generateKeyPair = async () => {
+  try {
+    const { publicKey, privateKey } = await generateKeys();
+    const exportedPublicKey = await exportPublicKey(publicKey);
+
+    sessionStorage.setItem("publicKey", exportedPublicKey);
+
+    storePrivateKey(privateKey);
+
+    return exportedPublicKey;
+
+  } catch (error) {
+    console.error("Error in generating key pairs: ", error);
+  }
 }
 
 const Register = () => {
@@ -22,20 +35,45 @@ const Register = () => {
     username: "",
     password: "",
     passwordConfirmation: "",
-    gender: "",
+    publicKey: "",
   });
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuthContext();
+  const { setUser, setAccessToken } = useAuthContext();
 
-  const handleFormSubmission = (e: React.FormEvent) => {
+  const handleFormSubmission = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log(userDetails);
-    // api
+
+    if (!userDetails.fullName || !userDetails.username || !userDetails.password || !userDetails.passwordConfirmation) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    const checkValidUsername = isValidUsername(userDetails.username);
+    if (!(checkValidUsername.isValid)) {
+      alert(checkValidUsername.message);
+      return;
+    }
+
+    if (userDetails.password !== userDetails.passwordConfirmation) {
+      alert("Password and Password Confirmation does not match");
+      return;
+    }
+
+    if (passwordStrength(userDetails.password).value !== "Strong") {
+      alert("Password must include lowercase, uppercase, symbol and number");
+      return;
+    }
+
+    const exportedPublicKey = await generateKeyPair() as string;
+    setUserDetails({...userDetails, publicKey: exportedPublicKey});
+
     const registerUser = async (userDetails: registerUserDetails) => {
       try {
         setLoading(true);
         const response = await fetch("/api/auth/register", {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json"
           },
@@ -47,8 +85,11 @@ const Register = () => {
         if (!response.ok) {
           throw new Error(data.error);
         }
-
-        setUser(data);
+        
+        setUser(data.user);
+        setAccessToken(data.accessToken);
+        sessionStorage.setItem("username", data.user.username);
+        sessionStorage.setItem("fullName", data.user.fullName);
       } catch (error: any) {
         console.error(error.message);
         toast.error(error.message);
@@ -56,7 +97,6 @@ const Register = () => {
         setLoading(false);
       }
     }
-
     registerUser(userDetails);
   }
 
@@ -68,23 +108,9 @@ const Register = () => {
         <input type="text" value={userDetails.username} className="input-form" onChange={(e) => setUserDetails({...userDetails, username: e.target.value})} placeholder="Username" />
         <input type="password" value={userDetails.password} className="input-form" onChange={(e) => setUserDetails({...userDetails, password: e.target.value})} placeholder="Password" />
         <input type="password" value={userDetails.passwordConfirmation} className="input-form" onChange={(e) => setUserDetails({...userDetails, passwordConfirmation: e.target.value})} placeholder="Password Confirmation" />
-        <FormControl component="fieldset">
-          <FormLabel component="legend"></FormLabel>
-          <RadioGroup
-            aria-label="gender"
-            name="gender"
-            value={userDetails.gender}
-            onChange={(e) => setUserDetails({...userDetails, gender: e.target.value})}
-            className='gap-20'
-            row
-          >
-            <FormControlLabel value="male" control={<Radio />} label="Male" />
-            <FormControlLabel value="female" control={<Radio />} label="Female" />
-          </RadioGroup>
-        </FormControl>
       </form>
       <button type="submit" onClick={handleFormSubmission} className='btn btn-primary btn-md btn-wide' disabled={loading}>{ loading ? "Loading..." : "Register" }</button>
-      <Link to={"/login"} className='text-xs'>Already have an account? <span className='text-blue-600 font-bold hover:text-blue-800'>login</span></Link>
+      <Link to={"/login"} className='text-xs'>Already have an account? <span className='text-blue-600 font-bold hover:text-blue-800'>Login</span></Link>
     </div>
   );
 };

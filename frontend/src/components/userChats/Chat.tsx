@@ -11,7 +11,6 @@ const Chat = ({ chat } : {chat:ChatType}) => {
     const hours = addZeroPadding(date.getHours());
     const minutes = addZeroPadding(date.getMinutes());
     return `${hours}:${minutes}`;
-
   }
 
   const addZeroPadding = (num:number) => {

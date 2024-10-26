@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { isValidUsername } from '../utils/util';
 
 const Login = () => {
   const [userDetails, setUserDetails] = useState({
@@ -9,10 +10,21 @@ const Login = () => {
     password: "",
   });
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuthContext();
+  const { setUser, setAccessToken } = useAuthContext();
 
   const handleFormSubmission = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!userDetails.username || !userDetails.password) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    const checkValidUsername = isValidUsername(userDetails.username);
+    if (!(checkValidUsername.isValid)) {
+      alert(checkValidUsername.message);
+      return;
+    }
 
     const loginUser = async () => {
       try {
@@ -26,12 +38,16 @@ const Login = () => {
         });
 
         const data = await response.json();
-        console.log(data);
         if (!response.ok) {
           throw new Error(data.error);
         }
 
-        setUser(data);
+        setUser(data.user);
+        setAccessToken(data.accessToken);
+        sessionStorage.setItem("username", data.user.username);
+        sessionStorage.setItem("fullName", data.user.fullName);
+        sessionStorage.setItem("publicKey", data.user.publicKey);
+        
       } catch (error: any) {
         console.log(error.message);
         toast.error(error.message);
@@ -50,7 +66,7 @@ const Login = () => {
         <input type="password" className="input-form" onChange={(e) => setUserDetails((prev) => ({...prev, password: e.target.value}))} placeholder="Password" />
       </form>
       <button type="submit" className='btn btn-primary btn-md btn-wide mb-4' onClick={handleFormSubmission} disabled={loading}>{ loading ? "Loading..." : "Login" }</button>
-      <Link to={"/register"} className='text-xs'>Haven't registered? <span className='text-blue-600 font-bold hover:text-blue-800'>register</span></Link>
+      <Link to={"/register"} className='text-xs'>Haven't registered? <span className='text-blue-600 font-bold hover:text-blue-800'>Register</span></Link>
     </div>
   );
 };

@@ -1,5 +1,4 @@
-import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useEffect, useState } from "react"
-import toast from "react-hot-toast";
+import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useState } from "react";
 
 type User = {
     id: string,
@@ -13,10 +12,14 @@ const AuthContext = createContext<{
     user: User | null;
     setUser: Dispatch<SetStateAction<User | null>>;
     loading: boolean;
+    accessToken: string | null;
+    setAccessToken: Dispatch<SetStateAction<string | null>>
 }>({
     user: null,
     setUser: () => {},
     loading: true,
+    accessToken: null,
+    setAccessToken: () => {},
 });
 
 export const useAuthContext = () => {
@@ -25,30 +28,11 @@ export const useAuthContext = () => {
 
 export const AuthProvider = ({children}: {children:ReactNode}) => {
     const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const checkUser = async () => {
-            try {
-                const response = await fetch("/api/auth/user");
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error);
-                }
-                setUser(data);
-            } catch (error: any) {
-                console.log(error);
-                toast.error(error.message);
-            } finally {
-                setLoading(false);
-            }
-        }
-        checkUser();
-    }, [])
+    const [loading, setLoading] = useState(false);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
 
     return (
-        <AuthContext.Provider value={{user, setUser, loading }}>
+        <AuthContext.Provider value={{user, setUser, loading, accessToken, setAccessToken }}>
             {children}
         </AuthContext.Provider>
     )

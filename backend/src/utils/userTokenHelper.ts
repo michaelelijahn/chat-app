@@ -1,44 +1,32 @@
 import jwt, { JwtPayload } from "jsonwebtoken";
 import prisma from "../db/prisma.js";
-import { generateRandomID, hash } from "./hash.js";
+import { hash } from "./hash.js";
 import { Request, Response, NextFunction } from "express";
 
-const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export const generateToken = async (userId: string, res: Response) => {
-    const accessToken: string = generateAccessToken(userId);
+export const generateToken = async (userId: string, username: string, res: Response) => {
+    const accessToken: string = generateAccessToken(userId, username);
     const refreshToken: string = generateRefreshToken(userId);
 
     try {
-        const hashedAccessToken = hash(accessToken);
         const hashedRefreshToken = hash(refreshToken);
 
         await prisma.token.create({
             data: {
                 userId,
-                accessToken: hashedAccessToken,
                 refreshToken: hashedRefreshToken,
+                isValid: true,
+                expiresAt: new Date(Date.now() + SEVEN_DAYS_MS)
             }
-        });
-
-        res.cookie("accessToken", accessToken, {
-            maxAge: FIFTEEN_MINUTES_MS,
-            httpOnly: process.env.NODE_ENV !== "development",
-            sameSite: process.env.NODE_ENV !== "development" ?  "none" : "lax",
-            secure: process.env.NODE_ENV !== "development",
-            path: "/"
         });
 
         res.cookie("refreshToken", refreshToken, {
             maxAge: SEVEN_DAYS_MS,
-            httpOnly: process.env.NODE_ENV !== "development",
-            sameSite: process.env.NODE_ENV !== "development" ?  "none" : "lax",
+            httpOnly: true,
             secure: process.env.NODE_ENV !== "development",
-            path: "/"
+            sameSite: "strict",
         });
-
-        res.header("Access-Control-Allow-Credentials", "true");
 
     } catch (error: any) {
         console.error(error.message);
@@ -46,43 +34,40 @@ export const generateToken = async (userId: string, res: Response) => {
 
     return {
         accessToken: accessToken,
-        refreshToken : refreshToken,
+        refreshToken: refreshToken,
     };
 }
 
-const generateAccessToken = (userId: string): string => {
-    return jwt.sign({ userId, tokenId: generateRandomID(), type: "access" }, process.env.JWT_ACCESS_SECRET! as string, {
+const generateAccessToken = (userId: string, username: string): string => {
+    return jwt.sign({ userId, username, type: "access" }, process.env.JWT_ACCESS_SECRET! as string, {
         expiresIn: "15m",
     });
 }
 
 const generateRefreshToken = (userId: string): string => {
-    return jwt.sign({ userId, tokenId: generateRandomID(), type: "refresh" }, process.env.JWT_REFRESH_SECRET! as string, {
+    return jwt.sign({ userId, type: "refresh" }, process.env.JWT_REFRESH_SECRET! as string, {
         expiresIn: "7d"
     });
 }
-export const getUser = async (refreshToken: string) => {
+
+export const getUser = async (userId: string) => {
     try {
-        const token = await prisma.token.findFirst({
+        const user = await prisma.user.findFirst({
             where: {
-                refreshToken: hash(refreshToken),
+                id: userId,
             },
-            select: {
-                user: true
-            }
         });
 
-        return token?.user || null;
-
-    } catch (error: any) {
-        console.error("failed to verify token: ", error);
+        return user || null;
+    } catch (error) {
+        console.error("failed to get user: ", error);
         throw error;
     }
 }
 
 export const deleteRefreshToken = async (refreshToken: string) => {
     try {
-        await prisma.token.delete({
+        await prisma.token.deleteMany({
             where: {
                 refreshToken: hash(refreshToken)
             }
@@ -99,72 +84,78 @@ export const isTokenValid = async (refreshToken: string) => {
 
         const token = await prisma.token.findFirst({
             where: {
-                refreshToken: hash(refreshToken)
+                refreshToken: hash(refreshToken),
+                isValid: true,
+                expiresAt: {
+                    gt: new Date()
+                },
             }
         });
 
-        if (token === null) {
-            return false;
-        }
-
-        const validToken = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string);
-
-        if (!validToken) {
-            return false;
-        }
-
-        return true;
+        return !!token;
     } catch (error) {
         console.error("Invalid Token");
     }
 }
 
 export const refreshAndAuthenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    const { accessToken, refreshToken } = req.cookies;
-
-    if (!accessToken && !refreshToken) {
-        return res.status(401).json({ error: "Unathorized, No Access Token and Refresh Token" });
-    }
-
-    let validToken = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET as string) as JwtPayload;
 
     try {
-        if (!validToken || !accessToken) {
-            if (!refreshToken) {
-                return res.status(401).json({ error: "No Refresh Token Provided" });
+        const accessToken = req.headers.authorization?.split(' ')[1];
+        const refreshToken = req.cookies?.refreshToken;
+
+        if (!accessToken && !refreshToken) {
+            return res.status(401).json({ error: "Authentication required" });
+        }
+
+        if (accessToken) {
+            try {
+                const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET as string) as JwtPayload;
+                const user = await getUser(decoded.userId);
+                res.locals.user = user;
+                return next();
+            } catch (error: any) {
+                if (error.name !== 'TokenExpiredError' || !refreshToken) {
+                    res.status(401).json({ error: error.message });
+                    return;
+                }
             }
+        }
+
+        if (!refreshToken) {
+            return res.status(401).json({ error: "No Refresh Token Provided" });
+        }
+
+        try {
 
             if (! await isTokenValid(refreshToken)) {
-                return res.status(401).json({ error: "Unauthorized, Invalid Token" });
-            } 
-    
-            const user = await getUser(refreshToken);
-    
-            if (!user) {
-                return res.status(404).json({ message: "User not found" });
+                throw new Error('Invalid refresh token');
             }
-    
-            const { accessToken } = await generateToken(user.id, res);
-            await deleteRefreshToken(refreshToken);
 
-            validToken = jwt.verify(accessToken as string, process.env.JWT_ACCESS_SECRET as string) as JwtPayload;
-        }
+            const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as JwtPayload;
+            await generateToken(decoded.userId, decoded.username, res);
 
-        const user = await prisma.user.findUnique({ where: { id: validToken?.userId }, select: { id: true, username: true, fullName: true, loginAttempts: true } });
+            const hashedRefreshToken = hash(refreshToken);
 
-        if (!user) {
-            return res.status(404).json({ error: "User not found" });
+            await prisma.token.updateMany({
+                where: {
+                    refreshToken: hashedRefreshToken,
+                    userId: decoded.userId,
+                },
+                data: {
+                    isValid: false,
+                }
+            });
+            const user = await getUser(decoded.userId);
+            res.locals.user = user;
+            return next();
+
+        } catch (error) {
+            res.clearCookie('refreshToken');
+            res.status(401).json({ error: "Authentication failed" });
         }
-    
-        if (user.loginAttempts <= 0) {
-            return res.status(403).json({ error: "This account is banned"});
-        }
-    
-        res.locals.user = user;
-        next();
-        
-    } catch (error: any) {
-        console.error(error.message);
-        res.status(403).json({ error: "Failed to Refresh and Authenticate Token" });
+    } catch (error) {
+        console.error('Auth error:', error);
+        res.status(500).json({ error: "Internal server error" });
     }
 }

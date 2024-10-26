@@ -3,25 +3,36 @@ import SideBar from "../components/sidebar/SideBar";
 import UserChats from "../components/userChats/UserChats";
 import { useAuthContext } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import { authenticatedFetch } from "../utils/util";
 
 const Home = () => {
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuthContext();
+  const { setUser, accessToken, setAccessToken } = useAuthContext();
 
   const handleUserLogOut = async () => {
+    console.log("trying to log out");
+    if (!accessToken) {
+      return;
+    }
     try {
       setLoading(true);
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const { response } = await authenticatedFetch({
+        url: "/api/auth/logout",
+        accessToken,
+        options: {
+          method: "POST",
+        }
       });
+
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error);
       }
-
+      sessionStorage.clear();
       setUser(null);
+      setAccessToken(null);
+      window.location.href = '/login';
     } catch (error: any) {
       console.error(error.message);
       toast.error(error.message);

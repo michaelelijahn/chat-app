@@ -35,8 +35,9 @@ model User {
 model Token {
   id String @id @default(cuid())
   userId String
-  accessToken String @unique
   refreshToken String @unique
+  isValid Boolean
+  expiresAt DateTime
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

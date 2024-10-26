@@ -1,6 +1,9 @@
 import { useEffect, useState, useMemo } from "react"
 import Profile from "./Profile"
 import toast from "react-hot-toast";
+import useConversation from "../../zustand/useConversation";
+import { authenticatedFetch } from "../../utils/util";
+import { useAuthContext } from "../../context/AuthContext";
 
 type ProfileType = {
   id: string;
@@ -13,17 +16,23 @@ const Profiles = ({ selectedPage, search }: { selectedPage: string, search: stri
   const [allSuggested, setAllSuggested] = useState<ProfileType[]>([]);
   const [allFriends, setAllFriends] = useState<ProfileType[]>([]);
   const [allChats, setAllChats] = useState<ProfileType[]>([]);
-  const [edited, setEdited] = useState(false);
+  const { edited, setEdited } = useConversation();
+  const { accessToken } = useAuthContext();
 
   const handleAdd = async (id: string) => {
+    if (!accessToken) {
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/friend/add/${id}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        credentials: "include"
+      const { response } = await authenticatedFetch({
+        url: `/api/friend/add/${id}`,
+        accessToken,
+        options: {
+          method: "POST",
+        }
       });
+      
       const data = await response.json();
 
       if (!response.ok) {
@@ -40,19 +49,25 @@ const Profiles = ({ selectedPage, search }: { selectedPage: string, search: stri
   }
 
   const handleDelete = async (id: string) => {
+    if (!accessToken) {
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/friend/delete/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        credentials: "include"
+      const { response } = await authenticatedFetch({
+        url: `/api/friend/delete/${id}`,
+        accessToken,
+        options: {
+          method: "DELETE",
+        }
       });
+
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error);
       }
+
       setEdited(true);
       setAllFriends(prevFriends => prevFriends.filter(profile => profile.id !== id));
 
@@ -63,10 +78,22 @@ const Profiles = ({ selectedPage, search }: { selectedPage: string, search: stri
   }
 
   useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
     const getFriends = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/friend/all");
+
+        const { response } = await authenticatedFetch({
+          url: "/api/friend/all",
+          accessToken,
+          options: {
+            method: "GET",
+          }
+        });
+
         const data = await response.json();
 
         if (!response.ok) {
@@ -85,7 +112,14 @@ const Profiles = ({ selectedPage, search }: { selectedPage: string, search: stri
     const getChats = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/chat/conversations");
+        const { response } = await authenticatedFetch({
+          url: "/api/chat/conversations",
+          accessToken,
+          options: {
+            method: "GET",
+          }
+        });
+
         const data = await response.json();
 
         if (!response.ok) {
@@ -104,7 +138,14 @@ const Profiles = ({ selectedPage, search }: { selectedPage: string, search: stri
     const getSuggested = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/friend/suggested");
+        const { response } = await authenticatedFetch({
+          url: "/api/friend/suggested",
+          accessToken,
+          options: {
+            method: "GET",
+          }
+        });
+
         const data = await response.json();
 
         if (!response.ok) {

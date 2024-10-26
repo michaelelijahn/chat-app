@@ -2,6 +2,7 @@ import express from "express";
 import prisma from "../db/prisma.js";
 import { Request, Response } from "express"
 import bcryptjs from "bcryptjs";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { generateToken, deleteRefreshToken, isTokenValid, getUser, refreshAndAuthenticateToken } from "../utils/userTokenHelper.js";
 
 const router = express.Router();
@@ -38,12 +39,14 @@ router.post("/register", async (req: Request, res: Response): Promise<any> => {
         });
 
         if (newUser) {
-            await generateToken(newUser.id, res);
-
+            const { accessToken } = await generateToken(newUser.id, newUser.username, res);
             res.status(201).json({
-                id: newUser.id,
-                username: newUser.username,
-                fullName: newUser.fullName,
+                user: {
+                    id: newUser.id,
+                    username: newUser.username,
+                    fullName: newUser.fullName,
+                },
+                accessToken,
             });
         } else {
             res.status(400).json({ error: "Invalid user data" });
@@ -93,15 +96,16 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
             })
         }
 
-        await generateToken(user.id, res);
-
+        const { accessToken } = await generateToken(user.id, user.username, res);
         res.status(200).json({
-            id: user.id,
-            username: user.username,
-            fullName: user.fullName,
-            publicKey: user.publicKey,
+            user: {
+                id: user.id,
+                username: user.username,
+                fullName: user.fullName,
+                publicKey: user.publicKey,
+            },
+            accessToken,
         });
-
     } catch (error: any) {
         console.log("Error in logging in user", error.message);
         res.status(500).json({ error: "Internal Server Error" });
@@ -110,27 +114,65 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
 
 router.post("/logout", refreshAndAuthenticateToken, async (req: Request, res: Response): Promise<any> => {
     try {
-        const refreshToken = req.cookies.refreshToken;
-
-        console.log("refresh token : ", refreshToken);
-
-        if (! await isTokenValid(refreshToken)) {
-            return res.status(401).json({ error: "Unauthorized, Invalid Token" });
-        }
-
-        const user = getUser(refreshToken);
-
-        if (user === null) {
-            res.status(403).json({ message: "Refresh token is invalid" });
-        }
+        const refreshToken = req.cookies?.refreshToken;
 
         await deleteRefreshToken(refreshToken);
-
+        res.clearCookie('refreshToken');
         res.status(200).json({ message: "User successfully logged out" });
     } catch (error) {
         console.log(error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
+
+router.post("/auth/refresh", async (req: Request, res: Response): Promise<any> => {
+    try {
+        const refreshToken = req.cookies?.refreshToken;
+
+        if (!refreshToken) {
+            return res.status(401).json({ error: "No refresh token" });
+        }
+
+        const isValid = await isTokenValid(refreshToken);
+        if (!isValid) {
+            res.clearCookie("refreshToken");
+            return res.status(401).json({ error: "Invalid refresh token" });
+        }
+
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as JwtPayload;
+
+        const { accessToken } = await generateToken(decoded.id, decoded.username, res);
+        await deleteRefreshToken(refreshToken);
+
+        res.status(200).json({
+            accessToken,
+        });
+    } catch (error: any) {
+        console.log("Error in refresing user token", error.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+router.get("/auth/publicKey", refreshAndAuthenticateToken, async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id: userId } = res.locals.user;
+
+        const publicKey = await prisma.user.findFirst({
+            where: {
+                id: userId
+            },
+            select: {
+                publicKey: true,
+            }
+        });
+
+        res.status(200).json({ publicKey });
+
+    } catch (error: any) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to get public key" });
+    }
+});
+
 
 export default router;

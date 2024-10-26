@@ -5,7 +5,3 @@ export const hash = (plaintext: string): string => {
     const hashedText = hash.update(plaintext).digest("hex");
     return hashedText;
 }
-
-export const generateRandomID = () => {
-    return crypto.randomUUID();
-}

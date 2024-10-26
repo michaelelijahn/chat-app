@@ -74,7 +74,6 @@ router.get("/suggested", refreshAndAuthenticateToken, async (req: Request, res: 
 
 router.post("/add/:id", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
-        console.log("trying to add friend");
         const { id: userId } = res.locals.user;
         const { id: friendId } = req.params;
 
@@ -103,8 +102,6 @@ router.delete("/delete/:id", refreshAndAuthenticateToken, async (req: Request, r
     try {
         const { id: userId } = res.locals.user;
         const { id: friendId } = req.params;
-        console.log("user id : ", userId);
-        console.log("friend id : ", friendId);
 
         const result = await prisma.$transaction([
             prisma.user.update({

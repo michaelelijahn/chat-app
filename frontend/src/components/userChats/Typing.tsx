@@ -1,24 +1,30 @@
 import { useState } from "react"
 import useConversation from "../../zustand/useConversation";
 import toast from "react-hot-toast";
+import { useAuthContext } from "../../context/AuthContext";
+import { authenticatedFetch } from "../../utils/util";
 
 const Typing = () => {
     const [loading, setLoading] = useState(false);
-    const { selectedConversation, setChats, chats } = useConversation();
+    const { selectedConversation, setChats, chats, setEdited } = useConversation();
+    const { accessToken } = useAuthContext();
     const [input, setInput] = useState("");
 
     const sendChat = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!selectedConversation || !input) return;
+        if (!accessToken) return;
         try {
             setLoading(true);
-            const response = await fetch(`/api/chat/send/${selectedConversation.id}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({chat: input}),
+            const { response } = await authenticatedFetch({
+                url: `/api/chat/send/${selectedConversation.id}`,
+                accessToken,
+                options: {
+                  method: "POST",
+                  body: JSON.stringify({chat: input}),
+                }
             });
+         
             const data = await response.json();
 
             if (!response.ok) {
@@ -26,6 +32,7 @@ const Typing = () => {
             }
 
             setChats([...chats, data ]);
+            setEdited(true);
         } catch (error: any) {
             console.log(error.message);
             toast.error(error.message);
@@ -34,7 +41,6 @@ const Typing = () => {
             setInput("");
         }
     }
-
 
   return (
         <form onSubmit={sendChat}>
