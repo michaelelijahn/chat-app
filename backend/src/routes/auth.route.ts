@@ -2,8 +2,7 @@ import express from "express";
 import prisma from "../db/prisma.js";
 import { Request, Response } from "express"
 import bcryptjs from "bcryptjs";
-import jwt, { JwtPayload } from "jsonwebtoken";
-import { generateToken, deleteRefreshToken, isTokenValid, getUser, refreshAndAuthenticateToken } from "../utils/userTokenHelper.js";
+import { generateToken, deleteRefreshToken, refreshAndAuthenticateToken } from "../utils/userTokenHelper.js";
 
 const router = express.Router();
 
@@ -124,34 +123,6 @@ router.post("/logout", refreshAndAuthenticateToken, async (req: Request, res: Re
     }
 });
 
-// router.post("/refresh", async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const refreshToken = req.cookies?.refreshToken;
-
-//         if (!refreshToken) {
-//             return res.status(401).json({ error: "No refresh token" });
-//         }
-
-//         const isValid = await isTokenValid(refreshToken);
-//         if (!isValid) {
-//             res.clearCookie("refreshToken");
-//             return res.status(401).json({ error: "Invalid refresh token" });
-//         }
-
-//         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as JwtPayload;
-
-//         const { accessToken } = await generateToken(decoded.id, decoded.username, res);
-//         await deleteRefreshToken(refreshToken);
-
-//         res.status(200).json({
-//             accessToken,
-//         });
-//     } catch (error: any) {
-//         console.log("Error in refresing user token", error.message);
-//         res.status(500).json({ error: "Internal Server Error" });
-//     }
-// });
-
 router.get("/publicKey/:id", refreshAndAuthenticateToken, async (req: Request, res: Response): Promise<any> => {
     try {
         const { id: friendId } = req.params;
@@ -176,31 +147,5 @@ router.get("/publicKey/:id", refreshAndAuthenticateToken, async (req: Request, r
         res.status(500).json({ error: "Failed to get public key" });
     }
 });
-
-router.post("/updatePublicKey", refreshAndAuthenticateToken, async (req: Request, res: Response): Promise<any> => {
-    try {
-        const { id: userId } = res.locals.user;
-        const publicKey = req.body;
-
-        console.log("id : ", userId);
-        console.log("publicKey : ", publicKey);
-
-        await prisma.user.update({
-            where: {
-                id: userId
-            },
-            data: {
-                publicKey
-            }
-        });
-
-        res.status(200).json({ message: "Public key updated successfully" });
-
-    } catch (error) {
-        console.error("Error updating public key:", error);
-        res.status(500).json({ error: "Failed to update public key" });
-    }
-});
-
 
 export default router;

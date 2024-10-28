@@ -50,7 +50,7 @@ const generateRefreshToken = (userId: string): string => {
     });
 }
 
-export const getUser = async (userId: string) => {
+const getUser = async (userId: string) => {
     try {
         const user = await prisma.user.findFirst({
             where: {
@@ -79,7 +79,7 @@ export const deleteRefreshToken = async (refreshToken: string) => {
     }
 }
 
-export const isTokenValid = async (refreshToken: string) => {
+const isTokenValid = async (refreshToken: string) => {
     try {
 
         const token = await prisma.token.findFirst({

@@ -10,10 +10,10 @@ const Home = () => {
   const { setUser, accessToken, setAccessToken } = useAuthContext();
 
   const handleUserLogOut = async () => {
-    console.log("trying to log out");
     if (!accessToken) {
       return;
     }
+    
     try {
       setLoading(true);
       const { response } = await authenticatedFetch({

@@ -1,4 +1,4 @@
-import { importKey, arrayBufferToString, stringToArrayBuffer, getUserPrivateKey } from "./UserKeys";
+import { importKey, stringToArrayBuffer, getUserPrivateKey } from "./UserKeys";
 
 export const generateAESChatKey = async () => {
     return await window.crypto.subtle.generateKey(
@@ -98,29 +98,23 @@ export const encryptAESChatKey = async (publicKey: string, aesKey: CryptoKey) =>
 
 const decryptAndImportAESChatKey = async (encryptedAESKey: string, privateKey: CryptoKey) => {
     try {
-        // 1. Convert the encrypted key from base64 to ArrayBuffer
+
         const binaryStr = window.atob(encryptedAESKey);
 
-        // 3. Convert to Uint8Array
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) {
             bytes[i] = binaryStr.charCodeAt(i);
         }
-        
-        // 4. Create ArrayBuffer
-        const buffer = bytes.buffer;
 
-        // 2. Decrypt the AES key using private key
         const decryptedKeyBuffer = await window.crypto.subtle.decrypt(
             {
                 name: "RSA-OAEP",
             } as RsaOaepParams,
             privateKey,
-            buffer
+            bytes.buffer,
         );
 
-        // 3. Import the decrypted key as an AES-GCM key
-        const aesKey = await window.crypto.subtle.importKey(
+        return await window.crypto.subtle.importKey(
             "raw",
             decryptedKeyBuffer,
             {
@@ -129,19 +123,8 @@ const decryptAndImportAESChatKey = async (encryptedAESKey: string, privateKey: C
             true,
             ["decrypt"]
         );
-
-        return aesKey;
     } catch (error: any) {
-        console.error("Decryption Error Details:", {
-            error,
-            encryptedKeyLength: encryptedAESKey.length,
-            base64Sample: encryptedAESKey.substring(0, 50) + "...",
-            privateKeyDetails: {
-                type: privateKey.type,
-                algorithm: privateKey.algorithm,
-                usages: privateKey.usages
-            }
-        });
+        console.error("Decryption Error Details:", error);
         throw error;
     }
 }

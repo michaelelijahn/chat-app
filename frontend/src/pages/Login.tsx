@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { isValidUsername } from '../utils/util';
-import { exportKey, generateUserKeys, getUserPrivateKey, storePrivateKey } from '../utils/UserKeys';
+import { getUserPrivateKey } from '../utils/UserKeys';
 
 const Login = () => {
   const [userDetails, setUserDetails] = useState({
@@ -47,25 +47,10 @@ const Login = () => {
         const existingPrivateKey = await getUserPrivateKey(data.user.id);
 
         if (!existingPrivateKey) {
-          // this part is still wrong, i want to change it
-          const { publicKey, privateKey } = await generateUserKeys();
-          const exportedPublicKey = await exportKey(publicKey, "public");
-
-          const result = await fetch("/api/auth/updatePublicKey", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${data.accessToken}`
-            },
-            body: JSON.stringify({ publicKey: exportedPublicKey}),
-          });
-
-          if (!result.ok) {
-            throw new Error("Failed to update public key");
-          }
-
-          await storePrivateKey(privateKey, data.user.id);
-          data.user.publicKey = exportedPublicKey;
+          // Still In Progress
+          toast.error("Please use your original device. End-to-end encryption requires device-specific keys for security.");
+          setLoading(false);
+          return;
         }
 
         setUser(data.user);

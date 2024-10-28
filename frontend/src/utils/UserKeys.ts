@@ -29,7 +29,6 @@ export const generateUserKeys = async () => {
     return keyPair;
 }
 
-// convert from key format to base64 string
 export const exportKey = async (key: CryptoKey, type: string) => {
     const keyFormat = type === "private" ? "pkcs8" : "spki";
     const exported = await window.crypto.subtle.exportKey(keyFormat, key);
@@ -38,7 +37,6 @@ export const exportKey = async (key: CryptoKey, type: string) => {
     return window.btoa(binary);
 }
 
-// convert from base64 string to key format
 export const importKey = async (key: string, type: string) => {
     const keyFormat = type === "private" ? "pkcs8" : "spki";
     const action = type === "private" ? "decrypt" : "encrypt";
@@ -63,10 +61,6 @@ export const importKey = async (key: string, type: string) => {
     );
 }
 
-export const arrayBufferToString = (buf: ArrayBuffer) => {
-    return String.fromCharCode(...new Uint8Array(buf));
-}
-
 export const stringToArrayBuffer = (str: string) => {
     const binaryString = window.atob(str);
     const bytes = new Uint8Array(binaryString.length);
@@ -89,16 +83,8 @@ export const storePrivateKey = async (privateKey: CryptoKey, userId: string) => 
     const db = await initializeDB();
     try {
 
-        console.log("Storing Private Key", userId, {
-            type: privateKey.type,
-            algorithm: privateKey.algorithm,
-            usages: privateKey.usages
-        });
-
         const transaction = db.transaction("keys", "readwrite");
         await transaction.store.put(privateKey, userId);
-        const key = await transaction.store.get(userId);
-        console.log("private key : ", key);
         await transaction.done;
 
     } catch (error) {
@@ -108,21 +94,15 @@ export const storePrivateKey = async (privateKey: CryptoKey, userId: string) => 
 
 export const getUserPrivateKey = async (userId: string) => {
     try {
-        // Open the database
+
         const db = await openDB('secureKeyStorage', 1);
     
-        // Start a transaction and get the private key
         const tx = db.transaction('keys', 'readonly');
         const privateKey = await tx.store.get(userId);
         await tx.done;
 
         if (!privateKey) {
             throw new Error("No private key found in storage");
-        }
-
-        // Verify it's a valid private key with decrypt usage
-        if (privateKey.type !== 'private' || !privateKey.usages.includes('decrypt')) {
-            throw new Error("Invalid private key format");
         }
     
         return privateKey;
