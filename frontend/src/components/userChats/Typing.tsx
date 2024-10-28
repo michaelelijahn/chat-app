@@ -3,12 +3,34 @@ import useConversation from "../../zustand/useConversation";
 import toast from "react-hot-toast";
 import { useAuthContext } from "../../context/AuthContext";
 import { authenticatedFetch } from "../../utils/util";
+import { encryptAESChatKey, encryptChatContent, generateAESChatKey, decryptChatContent } from "../../utils/ChatKeys";
 
 const Typing = () => {
     const [loading, setLoading] = useState(false);
     const { selectedConversation, setChats, chats, setEdited } = useConversation();
-    const { accessToken } = useAuthContext();
+    const { accessToken, user } = useAuthContext();
     const [input, setInput] = useState("");
+
+    const getFriendPublicKey = async (friendId: string) => {
+        if (!accessToken) return;
+        try {
+            const { response } = await authenticatedFetch({
+                url: `/api/auth/publicKey/${friendId}`,
+                accessToken,
+                options: {
+                  method: "GET",
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data?.publicKey; 
+            }
+
+        } catch (error: any) {
+            console.error(error);
+        }
+    }
 
     const sendChat = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -16,12 +38,27 @@ const Typing = () => {
         if (!accessToken) return;
         try {
             setLoading(true);
+            const aesKey = await generateAESChatKey();
+
+            const { encryptedContent, iv } = await encryptChatContent(input, aesKey);
+
+            const senderPK = sessionStorage.getItem("publicKey") as string;
+            const receiverPK = await getFriendPublicKey(selectedConversation.id); 
+
+            const senderEncryptedPK = await encryptAESChatKey(senderPK, aesKey);
+            const receiverEncryptedPK = await encryptAESChatKey(receiverPK, aesKey);
+
             const { response } = await authenticatedFetch({
                 url: `/api/chat/send/${selectedConversation.id}`,
                 accessToken,
                 options: {
-                  method: "POST",
-                  body: JSON.stringify({chat: input}),
+                    method: "POST",
+                    body: JSON.stringify({
+                        senderEncryptedPK,
+                        receiverEncryptedPK,
+                        encryptedContent,
+                        iv,
+                    }),
                 }
             });
          
@@ -31,7 +68,26 @@ const Typing = () => {
                 throw new Error(data.error);
             }
 
-            setChats([...chats, data ]);
+            const chatData: ChatType = {
+                id: data.id,
+                encryptedContent: encryptedContent,
+                senderId: data.senderId,
+                createdAt: data.createdAt
+            };
+
+            try {
+                const decryptedContent = await decryptChatContent(
+                    encryptedContent,
+                    senderEncryptedPK,
+                    iv,
+                    user?.id as string
+                );
+                chatData.encryptedContent = decryptedContent;
+            } catch (error) {
+                console.error("Failed to decrypt own message:", error);
+            }
+            
+            setChats([...chats, chatData ]);
             setEdited(true);
         } catch (error: any) {
             console.log(error.message);

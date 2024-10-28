@@ -5,25 +5,53 @@ import { useSocketContext } from "../../context/SocketContext";
 import toast from "react-hot-toast";
 import { useAuthContext } from "../../context/AuthContext";
 import { authenticatedFetch } from "../../utils/util";
+import { decryptChatContent } from "../../utils/ChatKeys";
 
 const Chats = () => {
   const { selectedConversation, setChats, chats } = useConversation();
-  const { accessToken } = useAuthContext();
+  const { accessToken, user } = useAuthContext();
   const [loading, setLoading] = useState(false);
   const { socket } = useSocketContext();
-  const ref = useRef<HTMLElement>() as React.MutableRefObject<HTMLDivElement> ;
+  const ref = useRef<HTMLElement>() as React.MutableRefObject<HTMLDivElement>;
 
   useEffect(() => {
-    socket?.on("newChat", (newChat) => {
-        setChats([...chats, newChat]);
+    socket?.on("newChat", async (newChat: ChatType) => {
+        try {
+            const encryptedAESKey = newChat.senderId === user?.id 
+                ? newChat.senderEncryptedAESKey 
+                : newChat.receiverEncryptedAESKey;
+
+            if (encryptedAESKey && newChat.iv) {
+
+                const decryptedContent = await decryptChatContent(
+                  newChat.encryptedContent,
+                  encryptedAESKey,
+                  newChat.iv,
+                  user?.id as string
+              );
+
+                const decryptedChat: ChatType = {
+                    ...newChat,
+                    encryptedContent: decryptedContent
+                };
+
+                setChats([...chats, decryptedChat]);
+            } else {
+                setChats([...chats, newChat]);
+            }
+        } catch (error) {
+            console.error("Failed to decrypt new message:", error);
+            setChats([...chats, newChat]);
+        }
     });
-}, [socket, chats, setChats]);
+
+    return () => {
+        socket?.off("newChat");
+    };
+}, [socket, user?.id, setChats, chats]); 
 
   useEffect(() => {
-
-    if (!accessToken) {
-      return;
-    }
+    if (!accessToken) return;
 
     const getChat = async () => {
       if (!selectedConversation) return;
@@ -35,19 +63,55 @@ const Chats = () => {
         const { response } = await authenticatedFetch({
           url: `/api/chat/${selectedConversation.id}`,
           accessToken,
-          options: {
-            method: "GET",
-          }
+          options: { method: "GET" }
         });
+        
         const data = await response.json();
 
         if (!response.ok) {
           throw new Error(data.error || "Error in getting previous chats");
         }
 
-        setChats(data);
+        if (!data.length) {
+            console.log("No messages found");
+            setChats([]);
+            return;
+        }
+
+        const decryptedMessages = await Promise.all(data.map(async (message: any) => {
+            try {
+
+                const encryptedAESKey = message.senderId === user?.id 
+                    ? message.senderEncryptedAESKey 
+                    : message.receiverEncryptedAESKey;
+
+                const decryptedContent = await decryptChatContent(
+                  message.encryptedContent,
+                  encryptedAESKey,
+                  message.iv,
+                  user?.id as string
+                );
+
+                return {
+                    id: message.id,
+                    encryptedContent: decryptedContent,
+                    senderId: message.senderId,
+                    createdAt: message.createdAt
+                } as ChatType;
+            } catch (error) {
+                console.error(`Failed to decrypt message ${message.id}:`, error);
+                return {
+                    id: message.id,
+                    encryptedContent: "Failed to decrypt message",
+                    senderId: message.senderId,
+                    createdAt: message.createdAt
+                } as ChatType;
+            }
+        }));
+
+        setChats(decryptedMessages);
       } catch (error: any) {
-        console.log(error.message);
+        console.log(error);
         toast.error(error.message);
       } finally {
         setLoading(false);
@@ -55,7 +119,7 @@ const Chats = () => {
     }
 
     getChat();
-  }, [selectedConversation, setChats]);
+  }, [selectedConversation, setChats, accessToken, user?.id]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -70,10 +134,10 @@ const Chats = () => {
       {!loading && chats.length === 0 ? (
         <p className="text-center text-black">Send a chat to start conversation</p>
       ) : (
-        !loading && chats.map((chat) => <Chat key={chat.id} chat={chat} />)
+        !loading && chats.map((chat: ChatType) => <Chat key={chat.id} chat={chat} />)
       )}
     </div>
-  )
-}
+  );
+};
 
 export default Chats

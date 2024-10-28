@@ -61,6 +61,15 @@ router.get("/:id", refreshAndAuthenticateToken, async (req: Request, res: Respon
                 chats: {
                     orderBy: {
                         createdAt: "asc"
+                    },
+                    select: {
+                        id: true,
+                        encryptedContent: true,
+                        senderId: true,
+                        createdAt: true,
+                        receiverEncryptedAESKey: true,
+                        senderEncryptedAESKey: true,
+                        iv: true,
                     }
                 }
             }
@@ -80,9 +89,9 @@ router.get("/:id", refreshAndAuthenticateToken, async (req: Request, res: Respon
 
 router.post("/send/:id", refreshAndAuthenticateToken, async (req: Request, res: Response) => {
     try {
-        const { chat } = req.body;
         const { id: targetUserId } = req.params;
         const { id: senderId } = res.locals.user;
+        const { senderEncryptedPK, receiverEncryptedPK, encryptedContent, iv } = req.body;
 
         let conversation = await prisma.conversation.findFirst({
             where: {
@@ -106,7 +115,10 @@ router.post("/send/:id", refreshAndAuthenticateToken, async (req: Request, res: 
             data: {
                 conversationId: conversation.id,
                 senderId,
-                content: chat,
+                encryptedContent,
+                senderEncryptedAESKey: senderEncryptedPK,
+                receiverEncryptedAESKey: receiverEncryptedPK,
+                iv
             }
         });
 
@@ -128,7 +140,15 @@ router.post("/send/:id", refreshAndAuthenticateToken, async (req: Request, res: 
         const receiverSocketId = getReceiverSocketId(targetUserId);
 
         if (receiverSocketId) {
-            serverIO.to(receiverSocketId).emit("newChat", newChat);
+            serverIO.to(receiverSocketId).emit("newChat", {
+                id: newChat.id,
+                encryptedContent: newChat.encryptedContent,
+                senderId: newChat.senderId,
+                createdAt: newChat.createdAt,
+                senderEncryptedAESKey: newChat.senderEncryptedAESKey,
+                receiverEncryptedAESKey: newChat.receiverEncryptedAESKey,
+                iv: newChat.iv
+            });
         }
 
         res.status(201).json(newChat);

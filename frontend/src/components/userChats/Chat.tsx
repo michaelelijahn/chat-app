@@ -20,7 +20,7 @@ const Chat = ({ chat } : {chat:ChatType}) => {
   return (
     <div className="px-4">
         <div className={`chat ${chatDirection}`}>
-            <div className={`chat-bubble text-white bg-indigo-600`}>{chat.content}</div>
+            <div className={`chat-bubble text-white bg-indigo-600`}>{chat.encryptedContent}</div>
             <div className="chat-footer opacity-50 text-xs flex gap-1 items-center">{formatTime(chat.createdAt)}</div>
         </div>
     </div>

@@ -14,59 +14,55 @@ datasource db {
 }
 
 model User {
-  id String @id @default(cuid())
-  username String @unique
-  fullName String
-  password String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  username        String   @unique
+  fullName        String
+  password        String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   conversationIds String[]
-  loginAttempts Int @default(5)
-  tokens Token[]
-  publicKey String
+  loginAttempts   Int      @default(5)
+  tokens          Token[]
+  publicKey       String
 
   conversations Conversation[]
-  chats Chat[]
+  chats         Chat[]
 
-  friends User[] @relation("Friendship")
-  friendsOf User[] @relation("Friendship")
+  friends                   User[]                      @relation("Friendship")
+  friendsOf                 User[]                      @relation("Friendship")
 }
 
 model Token {
-  id String @id @default(cuid())
-  userId String
-  refreshToken String @unique
-  isValid Boolean
-  expiresAt DateTime
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  isValid      Boolean
+  expiresAt    DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Conversation {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   memberIds String[]
-  members User[]
+  members   User[]
 
-  chatIds String[]
-  chats Chat[]
+  chatIds                   String[]
+  chats                     Chat[]
 }
 
 model Chat {
-  id String @id @default(cuid())
+  id             String       @id @default(cuid())
   conversationId String
-  conversation Conversation @relation( fields: [conversationId], references: [id])
-  senderId String
-  sender User @relation( fields: [senderId], references: [id])
-
-  content String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  encryptedContent   String
+  senderEncryptedAESKey String
+  receiverEncryptedAESKey String
+  iv String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-enum Gender {
-  male
-  female
-}
-

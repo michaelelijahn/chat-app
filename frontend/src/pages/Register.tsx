@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { passwordStrength } from "check-password-strength"; 
-import { exportPublicKey, generateKeys, storePrivateKey } from '../utils/keysHelper';
+import { exportKey, generateUserKeys, storePrivateKey } from '../utils/UserKeys';
 import { isValidUsername } from '../utils/util';
 
 type registerUserDetails = {
@@ -11,21 +11,26 @@ type registerUserDetails = {
   username: string;
   password: string;
   passwordConfirmation: string;
+  publicKey: string;
 }
 
-const generateKeyPair = async () => {
+type KeyPairResult = {
+  exportedPublicKey: string;
+  privateKey: CryptoKey;
+}
+
+const generateKeyPair = async (): Promise<KeyPairResult> => {
   try {
-    const { publicKey, privateKey } = await generateKeys();
-    const exportedPublicKey = await exportPublicKey(publicKey);
+    const { publicKey, privateKey } = await generateUserKeys();
+    const exportedPublicKey = await exportKey(publicKey, "public");
 
     sessionStorage.setItem("publicKey", exportedPublicKey);
 
-    storePrivateKey(privateKey);
-
-    return exportedPublicKey;
+    return { exportedPublicKey, privateKey };
 
   } catch (error) {
     console.error("Error in generating key pairs: ", error);
+    throw error;
   }
 }
 
@@ -42,7 +47,6 @@ const Register = () => {
 
   const handleFormSubmission = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(userDetails);
 
     if (!userDetails.fullName || !userDetails.username || !userDetails.password || !userDetails.passwordConfirmation) {
       alert("Please fill in all fields");
@@ -65,8 +69,8 @@ const Register = () => {
       return;
     }
 
-    const exportedPublicKey = await generateKeyPair() as string;
-    setUserDetails({...userDetails, publicKey: exportedPublicKey});
+    const { exportedPublicKey, privateKey } = await generateKeyPair();
+    const updatedUserDetails = {...userDetails, publicKey: exportedPublicKey};
 
     const registerUser = async (userDetails: registerUserDetails) => {
       try {
@@ -88,6 +92,7 @@ const Register = () => {
         
         setUser(data.user);
         setAccessToken(data.accessToken);
+        storePrivateKey(privateKey, data.user.id);
         sessionStorage.setItem("username", data.user.username);
         sessionStorage.setItem("fullName", data.user.fullName);
       } catch (error: any) {
@@ -97,7 +102,7 @@ const Register = () => {
         setLoading(false);
       }
     }
-    registerUser(userDetails);
+    registerUser(updatedUserDetails);
   }
 
   return (
