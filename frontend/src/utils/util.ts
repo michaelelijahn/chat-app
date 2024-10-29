@@ -1,3 +1,4 @@
+import { getUserPrivateKey } from "./UserKeys";
 
 export const isValidUsername = (username: string) => {
     if (username.length < 3) {
@@ -37,6 +38,19 @@ interface AuthenticatedRequestParams {
 
 export const authenticatedFetch = async ({ url, accessToken, options = {}} : AuthenticatedRequestParams) => {
     try {
+        const userId = sessionStorage.getItem("userId");
+
+        if (userId) {
+            const privateKey = await getUserPrivateKey(userId);
+            if (!privateKey) {
+                console.log("Private key not found or expired");
+                sessionStorage.clear();
+                window.location.href = '/login';
+                throw new Error('Session expired - Private key not found');
+            }
+        }
+
+
         const response = await fetch(url, {
             ...options,
             headers: {
@@ -76,6 +90,7 @@ export const authenticatedFetch = async ({ url, accessToken, options = {}} : Aut
                     newAccessToken
                 };
             } catch (error) {
+                sessionStorage.clear();
                 window.location.href = '/login';
                 throw new Error('Authentication failed');
             }

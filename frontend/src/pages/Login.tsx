@@ -55,8 +55,7 @@ const Login = () => {
 
         setUser(data.user);
         setAccessToken(data.accessToken);
-        sessionStorage.setItem("username", data.user.username);
-        sessionStorage.setItem("fullName", data.user.fullName);
+        sessionStorage.setItem("userId", data.user.id);
         sessionStorage.setItem("publicKey", data.user.publicKey);
         
       } catch (error: any) {

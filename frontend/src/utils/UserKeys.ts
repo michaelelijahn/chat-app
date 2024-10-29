@@ -73,7 +73,8 @@ export const stringToArrayBuffer = (str: string) => {
 const initializeDB = async () => {
     const db = await openDB("secureKeyStorage", 1, {
       upgrade(db) {
-        db.createObjectStore('keys');
+        const store = db.createObjectStore('keys');
+        store.createIndex("timestamp", "timestamp");
       }
     });
     return db;
@@ -84,7 +85,11 @@ export const storePrivateKey = async (privateKey: CryptoKey, userId: string) => 
     try {
 
         const transaction = db.transaction("keys", "readwrite");
-        await transaction.store.put(privateKey, userId);
+        await transaction.store.put({
+            key: privateKey,
+            timeStamp: Date.now(),
+            expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000)
+        }, userId);
         await transaction.done;
 
     } catch (error) {
@@ -96,14 +101,27 @@ export const getUserPrivateKey = async (userId: string) => {
     try {
 
         const db = await openDB('secureKeyStorage', 1);
-    
         const tx = db.transaction('keys', 'readonly');
-        const privateKey = await tx.store.get(userId);
+        const key = await tx.store.get(userId);
         await tx.done;
 
-        if (!privateKey) {
+        if (!key) {
             throw new Error("No private key found in storage");
         }
+
+        if (key.expiresAt && Date.now() > key.expiresAt) {
+            throw new Error("Private key has expired");
+        }
+
+        const privateKey = key.key;
+
+        const update = db.transaction("keys", "readwrite");
+        await update.store.put({
+            ...key,
+            timeStamp: Date.now(),
+            expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000),
+        }, userId);
+        await update.done;
     
         return privateKey;
       } catch (error) {
