@@ -37,7 +37,7 @@ router.post("/register", async (req: Request, res: Response): Promise<any> => {
         });
 
         if (newUser) {
-            const { accessToken } = await generateToken(newUser.id, newUser.username, res);
+            const { accessToken } = await generateToken(newUser.id, res);
             res.status(201).json({
                 user: {
                     id: newUser.id,
@@ -94,7 +94,7 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
             })
         }
 
-        const { accessToken } = await generateToken(user.id, user.username, res);
+        const { accessToken } = await generateToken(user.id, res);
         res.status(200).json({
             user: {
                 id: user.id,

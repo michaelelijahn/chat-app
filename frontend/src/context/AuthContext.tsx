@@ -2,9 +2,7 @@ import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useStat
 
 type User = {
     id: string,
-    fullName: string,
-    email: string, 
-    // profilePic: string,
+    username: string,
 }
 
 const AuthContext = createContext<{

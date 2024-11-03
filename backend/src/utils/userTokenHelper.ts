@@ -5,8 +5,8 @@ import { Request, Response, NextFunction } from "express";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export const generateToken = async (userId: string, username: string, res: Response) => {
-    const accessToken: string = generateAccessToken(userId, username);
+export const generateToken = async (userId: string, res: Response) => {
+    const accessToken: string = generateAccessToken(userId);
     const refreshToken: string = generateRefreshToken(userId);
 
     try {
@@ -38,8 +38,8 @@ export const generateToken = async (userId: string, username: string, res: Respo
     };
 }
 
-const generateAccessToken = (userId: string, username: string): string => {
-    return jwt.sign({ userId, username, type: "access" }, process.env.JWT_ACCESS_SECRET! as string, {
+const generateAccessToken = (userId: string): string => {
+    return jwt.sign({ userId, type: "access" }, process.env.JWT_ACCESS_SECRET! as string, {
         expiresIn: "15m",
     });
 }
@@ -133,7 +133,7 @@ export const refreshAndAuthenticateToken = async (req: Request, res: Response, n
             }
 
             const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as JwtPayload;
-            await generateToken(decoded.userId, decoded.username, res);
+            await generateToken(decoded.userId, res);
 
             const hashedRefreshToken = hash(refreshToken);
 

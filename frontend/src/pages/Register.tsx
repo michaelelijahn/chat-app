@@ -90,10 +90,11 @@ const Register = () => {
           throw new Error(data.error);
         }
         
-        setUser(data.user);
+        setUser({id: data.user.id, username: data.user.username});
         setAccessToken(data.accessToken);
         storePrivateKey(privateKey, data.user.id);
         sessionStorage.setItem("userId", data.user.id);
+        // sessionStorage.setItem("username", data.user.username);
       } catch (error: any) {
         console.error(error.message);
         toast.error(error.message);
