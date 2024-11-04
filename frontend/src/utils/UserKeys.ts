@@ -13,26 +13,12 @@ export const generateUserKeys = async () => {
         ["encrypt", "decrypt"],
     );
 
-    console.log("Generated Keys:", {
-        publicKey: {
-            type: keyPair.publicKey.type,
-            algorithm: keyPair.publicKey.algorithm,
-            usages: keyPair.publicKey.usages
-        },
-        privateKey: {
-            type: keyPair.privateKey.type,
-            algorithm: keyPair.privateKey.algorithm,
-            usages: keyPair.privateKey.usages
-        }
-    });
-
     return keyPair;
 }
 
 export const exportKey = async (key: CryptoKey, type: string) => {
     const keyFormat = type === "private" ? "pkcs8" : "spki";
     const exported = await window.crypto.subtle.exportKey(keyFormat, key);
-    // Convert to base64 in one step
     const binary = String.fromCharCode(...new Uint8Array(exported));
     return window.btoa(binary);
 }
@@ -41,14 +27,12 @@ export const importKey = async (key: string, type: string) => {
     const keyFormat = type === "private" ? "pkcs8" : "spki";
     const action = type === "private" ? "decrypt" : "encrypt";
 
-    // 1. Convert base64 to binary array buffer
     const binaryString = window.atob(key);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // 2. Import the key with proper format
     return await window.crypto.subtle.importKey(
         keyFormat,
         bytes.buffer,

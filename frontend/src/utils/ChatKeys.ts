@@ -23,7 +23,6 @@ export const encryptChatContent = async (content: string, aesKey: CryptoKey) => 
         new TextEncoder().encode(content)
     );
 
-    // Convert to base64 in one step
     const encryptedContentString = window.btoa(
         String.fromCharCode(...new Uint8Array(encryptedContent))
     );
@@ -43,12 +42,6 @@ export const decryptChatContent = async (encryptedContent: string, encryptedAESK
         if (!privateKey) {
             throw new Error("Private key not found");
         }
-
-        console.log("Private Key : ", {
-            type: privateKey.type,
-            algorithm: privateKey.algorithm,
-            usages: privateKey.usages
-        });
 
         const aesKey = await decryptAndImportAESChatKey(
             encryptedAESKey,
